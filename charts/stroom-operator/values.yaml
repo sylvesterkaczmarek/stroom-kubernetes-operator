@@ -1,0 +1,29 @@
+# Default values for stroom-operator.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Specify a private registry to use when pulling images
+registry: ""
+
+image:
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
