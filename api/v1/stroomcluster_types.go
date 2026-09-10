@@ -82,6 +82,10 @@ func (in *StroomCluster) GetNodeSetHeadlessServiceName(nodeSet *NodeSet) string 
 	return in.GetNodeSetName(nodeSet)
 }
 
+func (in *StroomCluster) GetNodeSetHeadlessServiceHostName(nodeSet *NodeSet) string {
+	return fmt.Sprintf("%v.%v.svc.cluster.local", in.GetNodeSetHeadlessServiceName(nodeSet), in.Namespace)
+}
+
 func (in *StroomCluster) GetNodeSetServiceName(nodeSet *NodeSet) string {
 	return fmt.Sprintf("%v-http", in.GetNodeSetName(nodeSet))
 }

@@ -137,7 +137,7 @@ func (r *StroomClusterReconciler) createStatefulSet(stroomCluster *stroomv1.Stro
 		},
 	}, {
 		Name:  "POD_SUBDOMAIN",
-		Value: fmt.Sprintf("%v.%v.svc", stroomCluster.GetNodeSetHeadlessServiceName(nodeSet), stroomCluster.Namespace),
+		Value: stroomCluster.GetNodeSetHeadlessServiceHostName(nodeSet),
 	}, {
 		Name:  "JAVA_OPTS",
 		Value: r.getJvmOptions(stroomCluster, nodeSet),
