@@ -694,7 +694,8 @@ func (r *StroomClusterReconciler) createIngresses(ctx context.Context, stroomClu
 
 		if nodeSet.Role != stroomv1.FrontendNodeRole {
 			ingressAnnotations := map[string]string{
-				"nginx.ingress.kubernetes.io/rewrite-target":  "/stroom/noauth/datafeed",
+				"nginx.ingress.kubernetes.io/rewrite-target": "/stroom/noauth/datafeed",
+				"haproxy.org/path-rewrite":                    "/stroom/datafeeddirect /stroom/noauth/datafeed",
 				"nginx.ingress.kubernetes.io/proxy-body-size": "0", // Disable client request payload size checking
 			}
 
