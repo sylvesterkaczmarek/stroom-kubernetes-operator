@@ -656,10 +656,10 @@ func (r *StroomClusterReconciler) createIngresses(ctx context.Context, stroomClu
 						}},
 						Rules: []netv1.IngressRule{
 							// Explicitly route datafeed traffic to the first non-UI NodeSet
-							r.createIngressRule(ingressSettings.HostName, netv1.PathTypeExact, "/stroom/noauth/datafeed", firstNonUiServiceName),
+							r.createIngressRule(ingressSettings.HostName, ingressSettings.GetPathType(netv1.PathTypeExact), "/stroom/noauth/datafeed", firstNonUiServiceName),
 
 							// All other traffic is routed to the UI NodeSets
-							r.createIngressRule(ingressSettings.HostName, netv1.PathTypePrefix, "/", serviceName),
+							r.createIngressRule(ingressSettings.HostName, ingressSettings.GetPathType(netv1.PathTypePrefix), "/", serviceName),
 						},
 					},
 				})
@@ -685,7 +685,7 @@ func (r *StroomClusterReconciler) createIngresses(ctx context.Context, stroomClu
 							SecretName: ingressSettings.SecretName,
 						}},
 						Rules: []netv1.IngressRule{
-							r.createIngressRule(ingressSettings.HostName, netv1.PathTypePrefix, "/web-socket/", serviceName),
+							r.createIngressRule(ingressSettings.HostName, ingressSettings.GetPathType(netv1.PathTypePrefix), "/web-socket/", serviceName),
 						},
 					},
 				},
@@ -718,7 +718,7 @@ func (r *StroomClusterReconciler) createIngresses(ctx context.Context, stroomClu
 						SecretName: ingressSettings.SecretName,
 					}},
 					Rules: []netv1.IngressRule{
-						r.createIngressRule(ingressSettings.HostName, netv1.PathTypeExact, "/stroom/datafeeddirect", serviceName),
+						r.createIngressRule(ingressSettings.HostName, ingressSettings.GetPathType(netv1.PathTypeExact), "/stroom/datafeeddirect", serviceName),
 					},
 				},
 			})

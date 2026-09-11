@@ -1224,6 +1224,13 @@ spec:
                   hostName:
                     description: DNS name at which the application will be reached (e.g. stroom.example.com)
                     type: string
+                  pathType:
+                    description: Override the path type for all Ingress routes. If omitted, each route uses its existing Exact or Prefix default.
+                    enum:
+                    - Exact
+                    - Prefix
+                    - ImplementationSpecific
+                    type: string
                   secretName:
                     description: Name of the TLS `Secret` containing the private key and server certificate for the `Ingress`
                     type: string

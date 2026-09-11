@@ -1,5 +1,7 @@
 package v1
 
+import netv1 "k8s.io/api/networking/v1"
+
 type VolumeClaimDeletePolicy string
 
 const (
@@ -21,6 +23,16 @@ type IngressSettings struct {
 	SecretName string `json:"secretName"`
 	// Ingress class name (e.g. nginx)
 	ClassName string `json:"className,omitempty"`
+	// Override the path type for all Ingress routes. If omitted, each route uses its existing Exact or Prefix default.
+	// +kubebuilder:validation:Enum=Exact;Prefix;ImplementationSpecific
+	PathType netv1.PathType `json:"pathType,omitempty"`
+}
+
+func (in IngressSettings) GetPathType(defaultPathType netv1.PathType) netv1.PathType {
+	if in.PathType != "" {
+		return in.PathType
+	}
+	return defaultPathType
 }
 
 type OpenIdConfiguration struct {
