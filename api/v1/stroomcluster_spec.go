@@ -82,8 +82,27 @@ type LogSenderSettings struct {
 	// Name of the `Environment` to set in feed metadata. If omitted, the cluster name is used (converted to UPPERCASE).
 	EnvironmentName string `json:"environmentName,omitempty"`
 	// Name of the `System` to set in feed metadata
-	SystemName string                      `json:"systemName,omitempty"`
-	Resources  corev1.ResourceRequirements `json:"resources,omitempty"`
+	SystemName string `json:"systemName,omitempty"`
+	// TLS client certificate settings for mTLS-secured feeds
+	Tls       *LogSenderTlsSettings       `json:"tls,omitempty"`
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+type LogSenderTlsSettings struct {
+	// Name of the Secret containing the client certificate and private key
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	SecretName string `json:"secretName"`
+	// Secret key containing the client certificate. Defaults to `tls.crt`.
+	CertificateKey string `json:"certificateKey,omitempty"`
+	// Secret key containing the client private key. Defaults to `tls.key`.
+	PrivateKeyKey string `json:"privateKeyKey,omitempty"`
+	// Optional Secret key containing a CA certificate for verifying the feed endpoint
+	CaCertificateKey string `json:"caCertificateKey,omitempty"`
+}
+
+func (in *LogSenderTlsSettings) IsZero() bool {
+	return in == nil || in.SecretName == ""
 }
 
 func (in *LogSenderSettings) IsZero() bool {

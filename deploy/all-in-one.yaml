@@ -3489,6 +3489,25 @@ spec:
                   systemName:
                     description: Name of the `System` to set in feed metadata
                     type: string
+                  tls:
+                    description: TLS client certificate settings for mTLS-secured feeds
+                    properties:
+                      caCertificateKey:
+                        description: Optional Secret key containing a CA certificate for verifying the feed endpoint
+                        type: string
+                      certificateKey:
+                        description: Secret key containing the client certificate. Defaults to `tls.crt`.
+                        type: string
+                      privateKeyKey:
+                        description: Secret key containing the client private key. Defaults to `tls.key`.
+                        type: string
+                      secretName:
+                        description: Name of the Secret containing the client certificate and private key
+                        minLength: 1
+                        type: string
+                    required:
+                    - secretName
+                    type: object
                 required:
                 - enabled
                 - image

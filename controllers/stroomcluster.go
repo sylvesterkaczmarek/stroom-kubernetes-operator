@@ -18,19 +18,23 @@ import (
 )
 
 const (
-	AppHttpPortName             = "app-http"
-	AppHttpPortNumber           = 8080
-	AppHttpsPortName            = "app-https"
-	AppHttpsPortNumber          = 8443
-	AdminPortName               = "admin"
-	AdminPortNumber             = 8081
-	StroomNodePvcName           = "data"
-	StroomNodeContainerName     = "stroom-node"
-	StroomTlsVolumeName         = "tls"
-	StroomApiTokenVolumeName    = "api-token"
-	StroomApiTokenMountPath     = "/stroom/auth"
-	LogSenderDefaultCpuLimit    = "500m"
-	LogSenderDefaultMemoryLimit = "256Mi"
+	AppHttpPortName                = "app-http"
+	AppHttpPortNumber              = 8080
+	AppHttpsPortName               = "app-https"
+	AppHttpsPortNumber             = 8443
+	AdminPortName                  = "admin"
+	AdminPortNumber                = 8081
+	StroomNodePvcName              = "data"
+	StroomNodeContainerName        = "stroom-node"
+	StroomTlsVolumeName            = "tls"
+	StroomApiTokenVolumeName       = "api-token"
+	StroomApiTokenMountPath        = "/stroom/auth"
+	LogSenderDefaultCpuLimit       = "500m"
+	LogSenderDefaultMemoryLimit    = "256Mi"
+	LogSenderTlsVolumeName         = "log-sender-tls"
+	LogSenderTlsMountPath          = "/stroom-log-sender/certs"
+	LogSenderDefaultCertificateKey = "tls.crt"
+	LogSenderDefaultPrivateKeyKey  = "tls.key"
 )
 
 func (r *StroomClusterReconciler) createNodeSetPvcLabels(stroomCluster *stroomv1.StroomCluster, nodeSet *stroomv1.NodeSet) map[string]string {
@@ -67,7 +71,57 @@ func (r *StroomClusterReconciler) createConfigMap(stroomCluster *stroomv1.Stroom
 	return &configMap
 }
 
+func getLogSenderSecurityArgs(logSender stroomv1.LogSenderSettings) string {
+	if logSender.Tls.IsZero() {
+		return "--no-secure"
+	}
+
+	args := fmt.Sprintf(
+		`--secure --cert "%s/client.crt" --key "%s/client.key"`,
+		LogSenderTlsMountPath,
+		LogSenderTlsMountPath,
+	)
+	if logSender.Tls.CaCertificateKey != "" {
+		args += fmt.Sprintf(` --cacert "%s/ca.crt"`, LogSenderTlsMountPath)
+	}
+	return args
+}
+
+func createLogSenderTlsVolume(tls *stroomv1.LogSenderTlsSettings) *corev1.Volume {
+	if tls.IsZero() {
+		return nil
+	}
+
+	certificateKey := tls.CertificateKey
+	if certificateKey == "" {
+		certificateKey = LogSenderDefaultCertificateKey
+	}
+	privateKeyKey := tls.PrivateKeyKey
+	if privateKeyKey == "" {
+		privateKeyKey = LogSenderDefaultPrivateKeyKey
+	}
+
+	items := []corev1.KeyToPath{
+		{Key: certificateKey, Path: "client.crt"},
+		{Key: privateKeyKey, Path: "client.key"},
+	}
+	if tls.CaCertificateKey != "" {
+		items = append(items, corev1.KeyToPath{Key: tls.CaCertificateKey, Path: "ca.crt"})
+	}
+
+	return &corev1.Volume{
+		Name: LogSenderTlsVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: tls.SecretName,
+				Items:      items,
+			},
+		},
+	}
+}
+
 func (r *StroomClusterReconciler) createLogSenderConfigMap(stroomCluster *stroomv1.StroomCluster) *corev1.ConfigMap {
+	securityArgs := getLogSenderSecurityArgs(stroomCluster.Spec.LogSender)
 	configMap := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      stroomCluster.GetLogSenderConfigMapName(),
@@ -75,10 +129,11 @@ func (r *StroomClusterReconciler) createLogSenderConfigMap(stroomCluster *stroom
 			Labels:    stroomCluster.GetLabels(),
 		},
 		Data: map[string]string{
-			"crontab.txt": "" +
-				"* * * * * ${LOG_SENDER_SCRIPT} \"${STROOM_BASE_LOGS_DIR}/access\" STROOM-ACCESS-EVENTS \"${STROOM_DATAFEED_URL}\" --system \"${STROOM_SYSTEM_NAME}\" --environment \"${STROOM_ENVIRONMENT_NAME}\" --file-regex \"${STROOM_FILE_REGEX}\" -m ${STROOM_MAX_DELAY_SECS} --delete-after-sending --no-secure --compress > /dev/stdout\n" +
-				"* * * * * ${LOG_SENDER_SCRIPT} \"${STROOM_BASE_LOGS_DIR}/app\"    STROOM-APP-EVENTS    \"${STROOM_DATAFEED_URL}\" --system \"${STROOM_SYSTEM_NAME}\" --environment \"${STROOM_ENVIRONMENT_NAME}\" --file-regex \"${STROOM_FILE_REGEX}\" -m ${STROOM_MAX_DELAY_SECS} --delete-after-sending --no-secure --compress > /dev/stdout\n" +
-				"* * * * * ${LOG_SENDER_SCRIPT} \"${STROOM_BASE_LOGS_DIR}/user\"   STROOM-USER-EVENTS   \"${STROOM_DATAFEED_URL}\" --system \"${STROOM_SYSTEM_NAME}\" --environment \"${STROOM_ENVIRONMENT_NAME}\" --file-regex \"${STROOM_FILE_REGEX}\" -m ${STROOM_MAX_DELAY_SECS} --delete-after-sending --no-secure --compress > /dev/stdout",
+			"crontab.txt": fmt.Sprintf(
+				"* * * * * ${LOG_SENDER_SCRIPT} \"${STROOM_BASE_LOGS_DIR}/access\" STROOM-ACCESS-EVENTS \"${STROOM_DATAFEED_URL}\" --system \"${STROOM_SYSTEM_NAME}\" --environment \"${STROOM_ENVIRONMENT_NAME}\" --file-regex \"${STROOM_FILE_REGEX}\" -m ${STROOM_MAX_DELAY_SECS} --delete-after-sending %s --compress > /dev/stdout\n"+
+					"* * * * * ${LOG_SENDER_SCRIPT} \"${STROOM_BASE_LOGS_DIR}/app\"    STROOM-APP-EVENTS    \"${STROOM_DATAFEED_URL}\" --system \"${STROOM_SYSTEM_NAME}\" --environment \"${STROOM_ENVIRONMENT_NAME}\" --file-regex \"${STROOM_FILE_REGEX}\" -m ${STROOM_MAX_DELAY_SECS} --delete-after-sending %s --compress > /dev/stdout\n"+
+					"* * * * * ${LOG_SENDER_SCRIPT} \"${STROOM_BASE_LOGS_DIR}/user\"   STROOM-USER-EVENTS   \"${STROOM_DATAFEED_URL}\" --system \"${STROOM_SYSTEM_NAME}\" --environment \"${STROOM_ENVIRONMENT_NAME}\" --file-regex \"${STROOM_FILE_REGEX}\" -m ${STROOM_MAX_DELAY_SECS} --delete-after-sending %s --compress > /dev/stdout",
+				securityArgs, securityArgs, securityArgs),
 		},
 	}
 
@@ -260,6 +315,9 @@ func (r *StroomClusterReconciler) createStatefulSet(stroomCluster *stroomv1.Stro
 				},
 			},
 		})
+		if tlsVolume := createLogSenderTlsVolume(logSender.Tls); tlsVolume != nil {
+			volumes = append(volumes, *tlsVolume)
+		}
 	}
 
 	// If a Stroom node config override is provided, create a volume for it
@@ -402,6 +460,23 @@ func (r *StroomClusterReconciler) createStatefulSet(stroomCluster *stroomv1.Stro
 			systemName = "Stroom"
 		}
 
+		logSenderVolumeMounts := []corev1.VolumeMount{{
+			Name:      StroomNodePvcName,
+			SubPath:   "logs",
+			MountPath: "/stroom-log-sender/log-volumes/stroom",
+		}, {
+			Name:      "log-sender-configmap",
+			MountPath: "/stroom-log-sender/config",
+			ReadOnly:  true,
+		}}
+		if !logSender.Tls.IsZero() {
+			logSenderVolumeMounts = append(logSenderVolumeMounts, corev1.VolumeMount{
+				Name:      LogSenderTlsVolumeName,
+				MountPath: LogSenderTlsMountPath,
+				ReadOnly:  true,
+			})
+		}
+
 		// Set default resource limits if not specified
 		resources := logSender.Resources
 		if resources.Size() == 0 {
@@ -440,16 +515,8 @@ func (r *StroomClusterReconciler) createStatefulSet(stroomCluster *stroomv1.Stro
 				Name:  "STROOM_MAX_DELAY_SECS",
 				Value: "15",
 			}},
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      StroomNodePvcName,
-				SubPath:   "logs",
-				MountPath: "/stroom-log-sender/log-volumes/stroom",
-			}, {
-				Name:      "log-sender-configmap",
-				MountPath: "/stroom-log-sender/config",
-				ReadOnly:  true,
-			}},
-			Resources: resources,
+			VolumeMounts: logSenderVolumeMounts,
+			Resources:    resources,
 		})
 	}
 

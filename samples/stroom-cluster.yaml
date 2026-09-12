@@ -29,6 +29,11 @@ spec:
     image:
       repository: gchq/stroom-log-sender
       tag: v2.2.0
+    # tls:
+    #   secretName: stroom-log-sender-client-tls
+    #   certificateKey: tls.crt
+    #   privateKeyKey: tls.key
+    #   caCertificateKey: ca.crt
     securityContext:
       runAsNonRoot: false
       privileged: true
